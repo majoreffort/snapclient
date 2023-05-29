@@ -248,7 +248,7 @@ void wifi_init(void) {
           {
               .ssid = WIFI_SSID,
               .password = WIFI_PASSWORD,
-              .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+              .threshold.authmode = WIFI_AUTH_WPA2_WPA3_PSK,
               .pmf_cfg = {.capable = true, .required = false},
           },
   };
