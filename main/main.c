@@ -514,9 +514,6 @@ void flac_task(void *pvParameters) {
   tv_t currentTimestamp;
   decoderData_t *pFlacData = NULL;
   snapcastSetting_t *scSet = (snapcastSetting_t *)pvParameters;
-#if CONFIG_USE_DSP_PROCESSOR
-  int flow_drain_counter = 0;
-#endif
 
   while (1) {
     xQueueReceive(decoderTaskQHdl, &pFlacData,
@@ -577,21 +574,6 @@ void flac_task(void *pvParameters) {
         }
 
 #if CONFIG_USE_DSP_PROCESSOR
-        if (flow_drain_counter > 0) {
-          flow_drain_counter--;
-          double dynamic_vol =
-              ((double)scSet->volume / 100 / (20 - flow_drain_counter));
-          if (flow_drain_counter == 0) {
-#if SNAPCAST_USE_SOFT_VOL
-            dynamic_vol = 0.0;
-#else
-            dynamic_vol = 1.0;
-#endif
-            audio_hal_set_mute(board_handle->audio_hal, scSet->muted);
-          }
-          dsp_processor_set_volome(dynamic_vol);
-        }
-
         dsp_processor_worker(pcmData->fragment->payload,
                              pcmData->fragment->size, scSet->sr);
 #endif
@@ -621,9 +603,6 @@ void opus_decoder_task(void *pvParameters) {
   tv_t currentTimestamp;
   decoderData_t *pOpusData = NULL;
   snapcastSetting_t *scSet = (snapcastSetting_t *)pvParameters;
-#if CONFIG_USE_DSP_PROCESSOR
-  int flow_drain_counter = 0;
-#endif
 
   while (1) {
     // get data from tcp task
@@ -718,21 +697,6 @@ void opus_decoder_task(void *pvParameters) {
           }
 
 #if CONFIG_USE_DSP_PROCESSOR
-          if (flow_drain_counter > 0) {
-            flow_drain_counter--;
-            double dynamic_vol =
-                ((double)scSet->volume / 100 / (20 - flow_drain_counter));
-            if (flow_drain_counter == 0) {
-#if SNAPCAST_USE_SOFT_VOL
-              dynamic_vol = 0.0;
-#else
-              dynamic_vol = 1.0;
-#endif
-              audio_hal_set_mute(board_handle->audio_hal, scSet->muted);
-            }
-            dsp_processor_set_volome(dynamic_vol);
-          }
-
           dsp_processor_worker(pcmData->fragment->payload,
                                pcmData->fragment->size, scSet->sr);
 #endif
@@ -814,21 +778,6 @@ static void http_get_task(void *pvParameters) {
     timeout = FAST_SYNC_LATENCY_BUF;
 
     esp_timer_stop(timeSyncMessageTimer);
-    if (received_header == true) {
-      if (!esp_timer_is_active(timeSyncMessageTimer)) {
-        esp_timer_start_periodic(timeSyncMessageTimer, timeout);
-      }
-
-      bool is_full = false;
-      latency_buffer_full(&is_full, portMAX_DELAY);
-      if ((is_full == true) && (timeout < NORMAL_SYNC_LATENCY_BUF)) {
-        if (esp_timer_is_active(timeSyncMessageTimer)) {
-          esp_timer_stop(timeSyncMessageTimer);
-        }
-
-        esp_timer_start_periodic(timeSyncMessageTimer, timeout);
-      }
-    }
 
     if (opusDecoder != NULL) {
       opus_decoder_destroy(opusDecoder);
@@ -1037,7 +986,6 @@ static void http_get_task(void *pvParameters) {
     uint32_t payloadOffset = 0;
     uint32_t tmpData = 0;
     int32_t payloadDataShift = 0;
-    int flow_drain_counter = 0;
 
     int16_t pcm_size = 120;
 
@@ -1720,25 +1668,6 @@ static void http_get_task(void *pvParameters) {
                                 endTime = esp_timer_get_time();
 
 #if CONFIG_USE_DSP_PROCESSOR
-                                if (flow_drain_counter > 0) {
-                                  flow_drain_counter--;
-                                  double dynamic_vol =
-                                      ((double)scSet.volume / 100 /
-                                       (20 - flow_drain_counter));
-                                  if (flow_drain_counter == 0) {
-#if SNAPCAST_USE_SOFT_VOL
-                                    dynamic_vol = 0.0;
-#else
-                                    dynamic_vol = 1.0;
-#endif
-                                    audio_hal_set_mute(
-                                        board_handle->audio_hal,
-                                        server_settings_message.muted);
-                                  }
-
-                                  dsp_processor_set_volome(dynamic_vol);
-                                }
-
                                 if ((pcmData) && (pcmData->fragment->payload)) {
                                   dsp_processor_worker(
                                       pcmData->fragment->payload,
@@ -1788,25 +1717,6 @@ static void http_get_task(void *pvParameters) {
                               }
 
 #if CONFIG_USE_DSP_PROCESSOR
-                              if (flow_drain_counter > 0) {
-                                flow_drain_counter--;
-                                double dynamic_vol =
-                                    ((double)scSet.volume / 100 /
-                                     (20 - flow_drain_counter));
-                                if (flow_drain_counter == 0) {
-#if SNAPCAST_USE_SOFT_VOL
-                                  dynamic_vol = 0.0;
-#else
-                                  dynamic_vol = 1.0;
-#endif
-                                  audio_hal_set_mute(
-                                      board_handle->audio_hal,
-                                      server_settings_message.muted);
-                                }
-
-                                dsp_processor_set_volome(dynamic_vol);
-                              }
-
                               if ((pcmData) && (pcmData->fragment->payload)) {
                                 dsp_processor_worker(pcmData->fragment->payload,
                                                      pcmData->fragment->size,
@@ -2285,18 +2195,6 @@ static void http_get_task(void *pvParameters) {
                           esp_timer_start_periodic(timeSyncMessageTimer,
                                                    timeout);
                         }
-
-                        bool is_full = false;
-                        latency_buffer_full(&is_full, portMAX_DELAY);
-                        if ((is_full == true) &&
-                            (timeout < NORMAL_SYNC_LATENCY_BUF)) {
-                          if (esp_timer_is_active(timeSyncMessageTimer)) {
-                            esp_timer_stop(timeSyncMessageTimer);
-                          }
-
-                          esp_timer_start_periodic(timeSyncMessageTimer,
-                                                   timeout);
-                        }
                       }
 
                       break;
@@ -2447,29 +2345,25 @@ static void http_get_task(void *pvParameters) {
                         // Volume setting using ADF HAL
                         // abstraction
                         if (scSet.muted != server_settings_message.muted) {
-#if CONFIG_USE_DSP_PROCESSOR
-                          if (server_settings_message.muted) {
-                            flow_drain_counter = 20;
-                          } else {
-                            flow_drain_counter = 0;
-                            audio_hal_set_mute(board_handle->audio_hal,
-                                               server_settings_message.muted);
 #if SNAPCAST_USE_SOFT_VOL
-                            dsp_processor_set_volome(
-                                (double)server_settings_message.volume / 100);
-#else
-                            dsp_processor_set_volome(1.0);
+                            if (server_settings_message.muted) {
+                                dsp_processor_set_volome(0.0);
+                            }
+                            else {
+                                dsp_processor_set_volome(
+                                    (double)server_settings_message.volume / 100);
+                            }
 #endif
-                          }
-#else
                           audio_hal_set_mute(board_handle->audio_hal,
                                              server_settings_message.muted);
-#endif
                         }
+                                             
                         if (scSet.volume != server_settings_message.volume) {
 #if SNAPCAST_USE_SOFT_VOL
-                          dsp_processor_set_volome(
-                              (double)server_settings_message.volume / 100);
+                            if (!server_settings_message.muted) {
+                                dsp_processor_set_volome(
+                                (double)server_settings_message.volume / 100);
+                            }
 #else
                           audio_hal_set_volume(board_handle->audio_hal,
                                                server_settings_message.volume);
@@ -2715,18 +2609,6 @@ static void http_get_task(void *pvParameters) {
                               esp_timer_start_periodic(timeSyncMessageTimer,
                                                        timeout);
                             }
-
-                            bool is_full = false;
-                            latency_buffer_full(&is_full, portMAX_DELAY);
-                            if ((is_full == true) &&
-                                (timeout < NORMAL_SYNC_LATENCY_BUF)) {
-                              if (esp_timer_is_active(timeSyncMessageTimer)) {
-                                esp_timer_stop(timeSyncMessageTimer);
-                              }
-
-                              esp_timer_start_periodic(timeSyncMessageTimer,
-                                                       timeout);
-                            }
                           }
                         }
 
@@ -2751,6 +2633,19 @@ static void http_get_task(void *pvParameters) {
                             timeout = NORMAL_SYNC_LATENCY_BUF;
 
                             ESP_LOGI(TAG, "latency buffer full");
+
+                            if (esp_timer_is_active(timeSyncMessageTimer)) {
+                              esp_timer_stop(timeSyncMessageTimer);
+                            }
+
+                            esp_timer_start_periodic(timeSyncMessageTimer,
+                                                     timeout);
+                          }
+                          else if ((is_full == false) &&
+                              (timeout > FAST_SYNC_LATENCY_BUF)){
+                            timeout = FAST_SYNC_LATENCY_BUF;
+
+                            ESP_LOGI(TAG, "latency buffer not full");
 
                             if (esp_timer_is_active(timeSyncMessageTimer)) {
                               esp_timer_stop(timeSyncMessageTimer);

@@ -24,7 +24,7 @@ set(COMPONENT_SRCS
 )
 endif()
 
-#[[
+
 if (CONFIG_ESP_LYRAT_MINI_V1_1_BOARD)
 message(STATUS "Current board name is " CONFIG_ESP_LYRAT_MINI_V1_1_BOARD)
 list(APPEND COMPONENT_ADD_INCLUDEDIRS ./lyrat_mini_v1_1)
@@ -34,7 +34,7 @@ set(COMPONENT_SRCS
 )
 endif()
 
-
+#[[
 if (CONFIG_ESP_LYRATD_MSC_V2_1_BOARD)
 message(STATUS "Current board name is " CONFIG_ESP_LYRATD_MSC_V2_1_BOARD)
 list(APPEND COMPONENT_ADD_INCLUDEDIRS ./lyratd_msc_v2_1)

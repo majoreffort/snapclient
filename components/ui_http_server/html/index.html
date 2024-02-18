@@ -8,28 +8,105 @@
 		h1 {font-size: 2.9rem;}
 		h2 {font-size: 2.1rem;}
 		p {font-size: 1.9rem;}
-		body {max-width: 500px; margin:0px auto; padding-bottom: 30px;}
-		.slider { -webkit-appearance: none; margin: 14px; width: 400px; height: 15px; border-radius: 5px; background: #39a6de; outline: none; -webkit-transition: .2s; transition: opacity .2s;}
-		.slider::-webkit-slider-thumb {-webkit-appearance: none; appearance: none; width: 25px; height: 25px; border-radius: 12px; background: #f74d4d; cursor: pointer;}
-		.slider::-moz-range-thumb { width: 25px; height: 25px; border-radius: 12px; background: #F74D4D; cursor: pointer; }
+
+		.slider {
+				writing-mode: bt-lr; /* IE */
+				-webkit-appearance: slider-vertical; /* Chromium */
+				margin: 14px;
+				width: 15px;
+				height: 200px;
+				border-radius: 5px;
+				background: #39a6de;
+				outline: none;
+				-webkit-transition: .2s;
+				transition: opacity .2s;
+			}
+		.slider::-webkit-slider-thumb 	{
+							-webkit-appearance: none;
+							appearance: none;
+							width: 25px;
+							height: 25px;
+							border-radius: 12px;
+							background: #f74d4d;
+							cursor: pointer;
+						}
+		.slider::-moz-range-thumb 	{
+							width: 25px;
+							height: 25px;
+							border-radius: 12px;
+							background: #F74D4D;
+							cursor: pointer;
+						}
 	</style>
 </head>
 <body>
-	<h1>DSP processor filter configuration</h1>
+	<!-- Displays the range of the slider from -6 to 6 in steps of 0.1 -->
 
-	<h2>base gain</h2>
+	<div class="headline_container">
+		<h1>DSP processor filter configuration</h1>
+	</div>
 
-	<!-- Displays the range of the slider from 0 to 100 in steps of 1 -->
-	<p><span id="textSliderValue">50</span> &#37</p>
-	<p><input type="range" onchange="updateSlider(this)" id="BaseGainSlider" min="0" max="100" value="50" step="1" class="slider"></p>
+	<div class="body_container" style="max-width: 500px; margin:0px auto; padding-bottom: 30px;">
+		<div class="range_container">
+			<div class="range_1_container" style="float:left; margin:10px">
+			    <div class="sliders_labels">
+			        <label for="BaseGainSlider">Base</label>
+			    </div>
+
+			    <div class="sliders_control">
+			        <input id="BaseGainSlider" type="range" orient="vertical" onchange="sendUpdateSlider()" oninput="updateSlider('baseSliderValue', this.value)" min="-6.00" max="6.00" value="0.00" step="0.01" class="slider">
+			    </div>
+
+			    <div class="slider_value" style="width: 100px;">
+			    	<span id="baseSliderValue">0.00</span> dB
+			    </div>
+			</div>
+
+			<div class="range_2_container" style="float:left; margin:10px">
+			    <div class="sliders_labels">
+			        <label for="MidGainSlider"">Mids</label>
+			    </div>
+
+			    <div class="sliders_control">
+			        <input id="MidGainSlider" type="range" orient="vertical" onchange="sendUpdateSlider()" oninput="updateSlider('midsSliderValue', this.value)" min="-6.00" max="6.00" value="0.00" step="0.01" class="slider">
+			    </div>
+
+			    <div class="slider_value" style="width: 100px;">
+			    	<span id="midsSliderValue">0.00</span> dB
+			    </div>
+			</div>
+
+			<div class="range_3_container" style="float:left; margin:10px">
+			    <div class="sliders_labels">
+			        <label for="heightsGainSlider">Heights</label>
+			    </div>
+
+			    <div class="sliders_control">
+			        <input id="heightsGainSlider" type="range" orient="vertical" onchange="sendUpdateSlider()" oninput="updateSlider('heightsSliderValue', this.value)" min="-6.00" max="6.00" value="0.00" step="0.01" class="slider">
+			    </div>
+
+			    <div class="slider_value" style="width: 100px;">
+			    	<span id="heightsSliderValue">0.00</span> dB
+			    </div>
+			</div>
+		</div>
+
 	<script>
-		function updateSlider(element) {
-			var sliderValue = document.getElementById("BaseGainSlider").value;
-			document.getElementById("textSliderValue").innerHTML = sliderValue;
-			console.log(sliderValue);
+		function sendUpdateSlider() {
+			var gain_1 = document.getElementById('BaseGainSlider').value;
+			var gain_2 = document.getElementById('MidGainSlider').value;
+			var gain_3 = document.getElementById('heightsGainSlider').value;
+
+			console.log(gain_1 + ", " + gain_2 + ", " + gain_3);
+			console.log("/post?gain_1=" + gain_1 + "&gain_2= " + gain_2 + "&gain_3=" + gain_3	);
 			var httpRequest = new XMLHttpRequest();
-			httpRequest.open("POST", "/post?value="+sliderValue, true);
+			httpRequest.open("POST", "/post?gain_1=" + gain_1 + "&gain_2= " + gain_2 + "&gain_3=" + gain_3, true);
 			httpRequest.send();
+		}
+
+		function updateSlider(id, val) {
+			var output = document.getElementById(id);
+			output.innerHTML = val;
 		}
 	</script>
 </body>

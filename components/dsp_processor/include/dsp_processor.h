@@ -1,6 +1,8 @@
 #ifndef _DSP_PROCESSOR_H_
 #define _DSP_PROCESSOR_H_
 
+#include "esp_err.h"
+
 typedef enum dspFlows {
   dspfStereo,
   dspfBiamp,

@@ -27,7 +27,7 @@ samples and therefore no precise sync could be achieved.
 
 ### Codebase
 
-The codebase is split into components and build on <b>ESP-IDF v4.3.1</b>. I still
+The codebase is split into components and build on <b>ESP-IDF v4.3.5</b>. I still
 have some refactoring on the todo list as the concept has started to settle and
 allow for new features can be added in a structured manner. In the code you
 will find parts that are only partly related features and still not on the task
@@ -91,6 +91,8 @@ sample manipulation needed.
 
 
 ### Hardware
+You will need an ESP32 or ESP32-S2 and an I2S DAC. We recommend using a Lyrat board. For pinout see the config options.
+
     -   ESP pinout                         MA12070P
     ------------------------------------------------------
                               ->            I2S_BCK        Audio Clock 3.072 MHz
@@ -105,26 +107,68 @@ sample manipulation needed.
                               ->            NMUTE          Amplifier Mute active low
 
 
-## Build
+## Installation
 
 Clone this repo:
-
-    git clone https://github.com/CarlosDerSeher/snapclient
+```
+git clone https://github.com/CarlosDerSeher/snapclient
+cd snapclient
+```
 
 Update third party code (opus, flac and esp-dsp):
+```
+git submodule update --init
+```
 
-    git submodule update --init
+### ESP-IDF environnement configuration
+- <b>If you're on Windows :</b> Install ESP-IDF v4.3.5 locally [https://github.com/espressif/esp-idf/releases/tag/v4.3.5](https://github.com/espressif/esp-idf/releases/tag/v4.3.5). More info: [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup-update.html](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup-update.html)
+- <b>If you're on Linux :</b> Use the docker image for ESP-IDF by following [docker build](doc/docker_build.md) doc.
 
+<a name="config"></a>
+### Snapcast ESP Configuration
+Configure your platform:
+```
+idf.py menuconfig
+```
 Configure to match your setup
-  - Wifi network name and password
-  - Audio codec/board setup
+  - <b>Audio HAL :</b> Choose your audio board
+    - Lyrat (4.3, 4.2)
+    - Lyrat TD (2.2, 2.1) --> not supported yet
+    - Lyrat Mini (1.1)
+    - KORVO DU1906	--> not supported yet
+    - ESP32-S2 Kaluga (1.2)	--> not supported yet
+    - Or a custom board
+  - <b>Custom Audio Board :</b> Configure your DAC and GPIO
+    - DAC Chip :
+      - TI PCM51XX/TAS57XX DAC (PCM51XX are stereo DAC in TSSOP package and TAS57XX are class-D amp in HTSSOP package. Both have i2s input and i2c control)
+      - TI PCM5102A DAC (Very basic stereo DAC WITHOUT i2c control)
+      - Infineon MA120X0 (High power class-D amp in QFN package)
+      - Analog Devices ADAU1961 (Stereo DAC with multiple analog inputs in LFCSP package)
+      - Analog Devices MAX98357 (Very popular basic mono AMP without i2c control)
+    - DAC I2C control interface : Choose GPIO pin of your I2C line and address of the DAC. If your DAC doesn't support I2C (PCM5102A or equivalent), put unused GPIO values.
+    - I2C master interface : GPIO pin of your DAC I2S bus.
+    - DAC interface configuration : Configure specific GPIO for your DAC functionnalities. Use `?` to have more info.
+  - <b>ESP32 DSP processor config :</b>
+    - DSP flow : Choose between Stereo, Bassboost, Bi-amp or Bass/Treble EQ. You can further configure it on the ESP web interface/
+    - Use asm version of Biquad_f32 : Optimized version of the DSP algorithm only for ESP32. Don't work on ESP32-S2
+    - Use software volume : Handle snapcast volume in the ESP. Activate this if your DAC do not provide a volume control (no I2C like PCM5102A or MAX98357)
+  - <b>WiFi Configuration :</b>
+    - WiFi Provisioning : Use the Espressif "ESP SoftAP Prov" APP to configure your wifi network.
+    - SSID : The SSID to connect to or the provisioning SSID.
+    - Password : The password of your WiFi network or the provisioning netword.
+    - Maximum retry: Use 0 for no limit.
+  - <b>Snapclient configuration :</b>
+    - Use mDNS : The client will search on the network for the snapserver automatically. Your network must support mDNS.
+    - Snapserver host : IP or URL of the server if mDNS is disabled or the mDNS resolution fail.
+    - Snapserver port :  Port of your snapserver, default is 1704.
+    - Snapclient name : The name under wich your ESP will appear on the Snapserver.
+    - HTTP Server Setting : The ESP create a basic webpage. You can configure the port to view this page and configure the DSP.
 
-    idf.py menuconfig
 
-Build, compile and flash:
-
-    idf.py build flash monitor
-
+### Compile and flash
+```
+idf.py build flash monitor
+```
 ## Test
 Setup a snapcast server on your network
 
@@ -171,7 +215,7 @@ Then on every `git commit`, a few sanity/formatting checks will be performed.
 - [ok] Integrate ESP wifi provision
 - [ok] Find and connect to Avahi broadcasted Snapcast server name
 - [ ] Add a client command interface layer like volume/mute control
-- [ ] add missing codec's (ogg, pcm, opus)
+- [ ] add missing codec's (ogg)
 - [ok] test esp-dsp functionality after ADF drop
 - [ok] Check compatibility with different HW than Lyrat v4.3
 - [ok] rework dsp_processor and test. At the moment only dspfStereo and dspfBassBoost will work. Also ensure/test we got enough RAM on WROVER modules
@@ -179,6 +223,10 @@ Then on every `git commit`, a few sanity/formatting checks will be performed.
 - [ ] dsp_processor: add equalizer
  * Control interface for equalizer
 - [ ] clean and polish code (remove all unused variables etc.)
+- [ok] Improve Documentation, e.g. Hardware guide (supported codecs)
+- [ ] upgrade to IDF v5
+- [ ] in IDF v5 use native i2s driver, as it supports preloading DMA buffer with valid data now
+- [ ] Throw out ADF copied components from project tree and use CmakeLists.txt to pull in necessary files from ADF
 
 ## Minor task
   - [ok] soft mute - play sample in buffer with decreasing volume

@@ -31,7 +31,8 @@
 #include "soc/rtc.h"
 
 #include "esp_attr.h"
-#include "esp_efuse.h"
+#include "soc/chip_revision.h"
+#include "hal/efuse_hal.h"
 #include "esp_err.h"
 #include "esp_intr_alloc.h"
 #include "esp_log.h"
@@ -184,12 +185,11 @@ static float i2s_apll_get_fi2s(int bits_per_sample, int sdm0, int sdm1,
   int f_xtal = (int)rtc_clk_xtal_freq_get() * 1000000;
 
 #if CONFIG_IDF_TARGET_ESP32
-  /* ESP32 rev0 silicon issue for APLL range/accuracy, please see ESP32 ECO
-   * document for more information on this */
-  if (esp_efuse_get_chip_ver() == 0) {
-    sdm0 = 0;
-    sdm1 = 0;
-  }
+    /* ESP32 rev0 silicon issue for APLL range/accuracy, please see ESP32 ECO document for more information on this */
+    if (!ESP_CHIP_REV_ABOVE(efuse_hal_chip_revision(), 100)) {
+        sdm0 = 0;
+        sdm1 = 0;
+    }
 #endif
   float fout = f_xtal * (sdm2 + sdm1 / 256.0f + sdm0 / 65536.0f + 4);
   if (fout < SOC_I2S_APLL_MIN_FREQ || fout > SOC_I2S_APLL_MAX_FREQ) {

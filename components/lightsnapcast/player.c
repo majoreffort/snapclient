@@ -365,7 +365,7 @@ int32_t player_latency_insert(int64_t newValue) {
 
   medianValue = MEDIANFILTER_Insert(&latencyMedianFilter, newValue);
   if (xSemaphoreTake(latencyBufSemaphoreHandle, pdMS_TO_TICKS(0)) == pdTRUE) {
-    if (MEDIANFILTER_isFull(&latencyMedianFilter)) {
+    if (MEDIANFILTER_isFull(&latencyMedianFilter, LATENCY_MEDIAN_FILTER_FULL)) {
       latencyBuffFull = true;
 
       //      ESP_LOGI(TAG, "(full) latency median: %lldus", medianValue);
@@ -1417,8 +1417,8 @@ static void player_task(void *pvParameters) {
 
         // resync hard if we are getting very late / early.
         // rest gets tuned in through apll speed control
-        if ((msgWaiting == 0) || (MEDIANFILTER_isFull(&shortMedianFilter) &&
-                                  (abs(avg) > hardResyncThreshold)))
+        if ((msgWaiting == 0) || (MEDIANFILTER_isFull(&shortMedianFilter,0) &&
+                                  (abs(shortMedian) > hardResyncThreshold)))
         //        if (msgWaiting == 0)
         {
           if (chnk != NULL) {
@@ -1467,7 +1467,7 @@ static void player_task(void *pvParameters) {
 
 #if USE_SAMPLE_INSERTION  // WIP: insert samples to adjust sync
         if ((enableControlLoop == true) &&
-            (MEDIANFILTER_isFull(&shortMedianFilter))) {
+            (MEDIANFILTER_isFull(&shortMedianFilter,0))) {
           if (avg < -miniOffset) {  // we are early
             dir = -1;
             dir_insert_sample = -1;
@@ -1478,7 +1478,7 @@ static void player_task(void *pvParameters) {
         }
 #else  // use APLL to adjust sync
         if ((enableControlLoop == true) &&
-            (MEDIANFILTER_isFull(&shortMedianFilter))) {
+            (MEDIANFILTER_isFull(&shortMedianFilter,0))) {
           if ((shortMedian < -shortOffset) && (miniMedian < -miniOffset) &&
               (avg < -miniOffset)) {  // we are early
             dir = -1;
@@ -1505,8 +1505,7 @@ static void player_task(void *pvParameters) {
 
           //          xSemaphoreTake(playerPcmQueueMux, portMAX_DELAY);
 
-          //          ESP_LOGI (TAG, "%d, %lldus, q %d",
-          //          dir, avg, uxQueueMessagesWaiting(pcmChkQHdl));
+          //ESP_LOGI (TAG, "%d, %lldus, q %d", dir, avg, uxQueueMessagesWaiting(pcmChkQHdl));
 
           //                     ESP_LOGI (TAG, "%d, %lldus, %lldus %llds,
           //                     %lld.%lldms", dir, age, avg, sec, msec, usec);

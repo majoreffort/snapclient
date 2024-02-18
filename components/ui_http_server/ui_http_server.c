@@ -8,6 +8,8 @@
          CONDITIONS OF ANY KIND, either express or implied.
 */
 
+#include "ui_http_server.h"
+
 #include <inttypes.h>
 #include <math.h>
 #include <mbedtls/base64.h>
@@ -15,19 +17,16 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/task.h"
-
+#include "dsp_processor.h"
 #include "esp_err.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
 #include "esp_spiffs.h"
 #include "esp_vfs.h"
 #include "esp_wifi.h"
-
-#include "dsp_processor.h"
-#include "ui_http_server.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/task.h"
 
 static const char *TAG = "HTTP";
 
@@ -198,7 +197,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
   Text2Html(req, "/html/index.html");
 
   /* Send Image */
-  Image2Html(req, "/html/ESP-LOGO.txt", "png");
+  // Image2Html(req, "/html/ESP-LOGO.txt", "png");
 
   /* Send empty chunk to signal HTTP response completion */
   httpd_resp_sendstr_chunk(req, NULL);
@@ -212,14 +211,48 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 static esp_err_t root_post_handler(httpd_req_t *req) {
   //	ESP_LOGI(TAG, "root_post_handler req->uri=[%s]", req->uri);
   URL_t urlBuf;
-  find_key_value("value=", (char *)req->uri, urlBuf.str_value);
-  //	ESP_LOGD(TAG, "urlBuf.str_value=[%s]", urlBuf.str_value);
-  urlBuf.long_value = strtol(urlBuf.str_value, NULL, 10);
-  //	ESP_LOGD(TAG, "urlBuf.long_value=%ld", urlBuf.long_value);
+  int ret = -1;
 
-  // Send to http_server_task
-  if (xQueueSend(xQueueHttp, &urlBuf, portMAX_DELAY) != pdPASS) {
-    ESP_LOGE(TAG, "xQueueSend Fail");
+  memset(&urlBuf, 0, sizeof(URL_t));
+
+  if (find_key_value("gain_1=", (char *)req->uri, urlBuf.str_value)) {
+    ESP_LOGD(TAG, "urlBuf.str_value=[%s]", urlBuf.str_value);
+
+    urlBuf.gain_1 = strtof(urlBuf.str_value, NULL);
+    ESP_LOGD(TAG, "urlBuf.float_value=%f", urlBuf.gain_1);
+
+    ret = 0;
+  } else {
+    ESP_LOGD(TAG, "key 'gain_1=' not found");
+  }
+
+  if (find_key_value("gain_2=", (char *)req->uri, urlBuf.str_value)) {
+    ESP_LOGD(TAG, "urlBuf.str_value=[%s]", urlBuf.str_value);
+
+    urlBuf.gain_2 = strtof(urlBuf.str_value, NULL);
+    ESP_LOGD(TAG, "urlBuf.float_value=%f", urlBuf.gain_2);
+
+    ret = 0;
+  } else {
+    ESP_LOGD(TAG, "key 'gain_2=' not found");
+  }
+
+  if (find_key_value("gain_3=", (char *)req->uri, urlBuf.str_value)) {
+    ESP_LOGD(TAG, "urlBuf.str_value=[%s]", urlBuf.str_value);
+
+    urlBuf.gain_3 = strtof(urlBuf.str_value, NULL);
+    ESP_LOGD(TAG, "urlBuf.float_value=%f", urlBuf.gain_3);
+
+    ret = 0;
+  } else {
+    ESP_LOGD(TAG, "key 'gain_3=' not found");
+  }
+
+  if (ret >= 0) {
+    // Send to http_server_task
+    if (xQueueSend(xQueueHttp, &urlBuf, portMAX_DELAY) != pdPASS) {
+      ESP_LOGE(TAG, "xQueueSend Fail");
+    }
   }
 
   /* Redirect onto root to see the updated file list */
@@ -367,18 +400,15 @@ static void http_server_task(void *pvParameters) {
     // Waiting for post
     if (xQueueReceive(xQueueHttp, &urlBuf, portMAX_DELAY) == pdTRUE) {
       filterParams_t filterParams;
-      float scale, gainMax = 6.0;
 
-      //      ESP_LOGI(TAG, "str_value=%s long_value=%ld", urlBuf.str_value,
-      //      urlBuf.long_value);
-
-      scale = ((float)(2 * urlBuf.long_value - 50) / 100.0);
+      ESP_LOGI(TAG, "str_value=%s gain_1=%f, gain_2=%f, gain_3=%f",
+               urlBuf.str_value, urlBuf.gain_1, urlBuf.gain_2, urlBuf.gain_3);
 
       filterParams.dspFlow = dspfEQBassTreble;
       filterParams.fc_1 = 300.0;
-      filterParams.gain_1 = gainMax * scale;
+      filterParams.gain_1 = urlBuf.gain_1;
       filterParams.fc_3 = 4000.0;
-      filterParams.gain_3 = gainMax * 0;
+      filterParams.gain_3 = urlBuf.gain_3;
 
 #if CONFIG_USE_DSP_PROCESSOR
       dsp_processor_update_filter_params(&filterParams);
